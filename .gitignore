@@ -10,11 +10,15 @@ __pycache__/
 venv/
 .pytest_cache/
 .ruff_cache/
+*.sqlite3
+*.log
 
 # Node
 node_modules/
 dist/
 coverage/
+playwright-report/
+test-results/
 
 # IDE / OS
 .vscode/

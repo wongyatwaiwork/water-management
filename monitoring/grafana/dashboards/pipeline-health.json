@@ -1,0 +1,26 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {"type":"timeseries","title":"API request rate","gridPos":{"h":8,"w":8,"x":0,"y":0},"targets":[{"expr":"sum(rate(water_http_requests_total[1m])) by (route)","legendFormat":"{{route}}"}]},
+    {"type":"timeseries","title":"API p95 latency","gridPos":{"h":8,"w":8,"x":8,"y":0},"targets":[{"expr":"histogram_quantile(0.95, sum(rate(water_http_request_duration_seconds_bucket[5m])) by (le, route))","legendFormat":"{{route}}"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"type":"timeseries","title":"HTTP errors","gridPos":{"h":8,"w":8,"x":16,"y":0},"targets":[{"expr":"sum(rate(water_http_errors_total[5m])) by (status)","legendFormat":"HTTP {{status}}"}]},
+    {"type":"timeseries","title":"Readings ingested per minute","gridPos":{"h":8,"w":8,"x":0,"y":8},"targets":[{"expr":"sum(increase(sensor_readings_ingested_total[1m]))","legendFormat":"accepted"}]},
+    {"type":"timeseries","title":"Rejected and duplicate readings","gridPos":{"h":8,"w":8,"x":8,"y":8},"targets":[{"expr":"sum(increase(sensor_readings_rejected_total[5m])) by (reason)","legendFormat":"rejected: {{reason}}"},{"expr":"sum(increase(sensor_reading_duplicates_total[5m]))","legendFormat":"duplicates"}]},
+    {"type":"timeseries","title":"Anomalies detected","gridPos":{"h":8,"w":8,"x":16,"y":8},"targets":[{"expr":"sum(increase(anomalies_detected_total[5m])) by (type)","legendFormat":"{{type}}"}]},
+    {"type":"stat","title":"Active devices","gridPos":{"h":5,"w":6,"x":0,"y":16},"targets":[{"expr":"active_devices"}]},
+    {"type":"stat","title":"Stale devices","gridPos":{"h":5,"w":6,"x":6,"y":16},"targets":[{"expr":"stale_devices"}]},
+    {"type":"stat","title":"Backend scrape health","gridPos":{"h":5,"w":6,"x":12,"y":16},"targets":[{"expr":"up{job=\"water-monitoring-backend\"}"}]}
+  ],
+  "refresh":"10s",
+  "schemaVersion":41,
+  "tags":["water-monitoring","operations"],
+  "templating":{"list":[]},
+  "time":{"from":"now-1h","to":"now"},
+  "timezone":"browser",
+  "title":"Water Telemetry Pipeline Health",
+  "uid":"water-pipeline-health",
+  "version":1
+}
+
