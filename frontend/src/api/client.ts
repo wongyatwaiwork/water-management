@@ -8,8 +8,10 @@ import type {
   Summary,
   UsageSeries,
 } from '../types/api'
+import { demoApi } from './demoData'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
+export const isDemoMode = import.meta.env.MODE === 'demo'
 
 class ApiError extends Error {
   constructor(
@@ -33,7 +35,7 @@ async function get<T>(
   return response.json() as Promise<T>
 }
 
-export const api = {
+const liveApi = {
   summary: () => get<Summary>('/analytics/summary/'),
   sites: () => get<Paginated<Site>>('/sites/'),
   devices: (filters?: { site?: number; status?: string; device_type?: string }) =>
@@ -53,3 +55,5 @@ export const api = {
     get<Paginated<Anomaly>>('/anomalies/', params),
   anomaly: (id: number) => get<Anomaly>(`/anomalies/${id}/`),
 }
+
+export const api = isDemoMode ? demoApi : liveApi

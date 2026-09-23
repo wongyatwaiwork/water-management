@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   AppBar,
   Box,
+  Chip,
   Drawer,
   IconButton,
   List,
@@ -19,6 +20,7 @@ import SensorsIcon from '@mui/icons-material/Sensors'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import WaterDropIcon from '@mui/icons-material/WaterDrop'
 import { NavLink, Outlet } from 'react-router-dom'
+import { isDemoMode } from '../api/client'
 
 const drawerWidth = 248
 const navigation = [
@@ -84,7 +86,18 @@ export function AppShell() {
           >
             <MenuIcon />
           </IconButton>
-          <Typography fontWeight={600}>Water IoT Monitoring</Typography>
+          <Typography fontWeight={600} sx={{ flexGrow: 1 }}>
+            Water IoT Monitoring
+          </Typography>
+          {isDemoMode && (
+            <Chip
+              size="small"
+              label="Hosted demo · synthetic data"
+              color="info"
+              variant="outlined"
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+            />
+          )}
         </Toolbar>
       </AppBar>
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>

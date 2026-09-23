@@ -3,8 +3,17 @@
 A production-style portfolio project demonstrating ingestion, validation, storage, analysis,
 visualization, and operational monitoring of **fictional smart-water-meter telemetry**.
 
-This is an independent engineering demonstration. It doesn't uses no
-customer or proprietary data, and is not a production leak-detection system.
+This is an independent engineering demonstration. It uses no customer or proprietary data and is
+not a production leak-detection system.
+
+## Live portfolio demo
+
+[Open the hosted AquaScope dashboard](https://wongyatwaiwork.github.io/water-monitoring-platform/)
+
+The hosted dashboard runs the production React interface against a clearly labelled, deterministic
+synthetic dataset so interviewers can explore every screen without credentials or a long-running
+demo server. The complete Django, PostgreSQL, ingestion, monitoring, and Docker Compose stack remains
+in this repository and can be run locally with the quick-start command below.
 
 ## What is implemented
 
@@ -23,8 +32,9 @@ customer or proprietary data, and is not a production leak-detection system.
 ## Screenshots
 
 Screenshots are intentionally not committed. The application has been visually verified at desktop
-and mobile breakpoints, but the live UI at [http://localhost:3000](http://localhost:3000) is the
-authoritative representation and avoids a stale or fabricated portfolio image.
+and mobile breakpoints; the hosted dashboard above is the quickest visual reference, while the live
+full-stack UI at [http://localhost:3000](http://localhost:3000) is authoritative when running the
+complete local environment.
 
 ## Architecture
 
