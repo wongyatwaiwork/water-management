@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -56,6 +56,65 @@ def test_daily_consumption_returns_bounded_series(api_client, device):
     assert response.status_code == 200
     assert response.json()["points"]
     assert response.json()["points"][0]["volume_liters"] > 0
+
+
+def test_daily_consumption_groups_by_the_device_site_timezone(api_client, device):
+    device.site.timezone = "Asia/Shanghai"
+    device.site.save(update_fields=["timezone"])
+    SensorReading.objects.bulk_create(
+        [
+            SensorReading(
+                device=device,
+                timestamp=datetime(2026, 9, 22, 23, tzinfo=UTC),
+                flow_rate_lpm=Decimal("1.0"),
+                cumulative_volume_l=Decimal("1000"),
+            ),
+            SensorReading(
+                device=device,
+                timestamp=datetime(2026, 9, 23, 1, tzinfo=UTC),
+                flow_rate_lpm=Decimal("1.0"),
+                cumulative_volume_l=Decimal("1120"),
+            ),
+        ]
+    )
+
+    response = api_client.get(
+        "/api/analytics/daily-consumption/",
+        {
+            "device_id": device.serial_number,
+            "from": "2026-09-22T22:00:00Z",
+            "to": "2026-09-23T02:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["points"]) == 1
+    assert response.json()["points"][0]["date"].startswith("2026-09-23")
+
+
+def test_usage_heatmap_groups_by_the_device_site_timezone(api_client, device):
+    device.site.timezone = "Asia/Shanghai"
+    device.site.save(update_fields=["timezone"])
+    SensorReading.objects.create(
+        device=device,
+        timestamp=datetime(2026, 9, 22, 23, 15, tzinfo=UTC),
+        flow_rate_lpm=Decimal("1.0"),
+        cumulative_volume_l=Decimal("1000"),
+    )
+
+    response = api_client.get(
+        "/api/analytics/heatmap/",
+        {
+            "device_id": device.serial_number,
+            "from": "2026-09-22T23:00:00Z",
+            "to": "2026-09-22T23:30:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["points"] == [
+        {"day_of_week": 2, "hour": 7, "average_flow_rate_lpm": 1.0}
+    ]
 
 
 def test_invalid_bucket_is_rejected(api_client, device):

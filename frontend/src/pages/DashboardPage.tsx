@@ -29,7 +29,7 @@ const ranges: Record<Range, { days: number; bucket: '5m' | '1h' | '1d' }> = {
 }
 
 export function DashboardPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [range, setRange] = useState<Range>('24h')
   const [selectedDevice, setSelectedDevice] = useState(searchParams.get('device') ?? '')
   const [selectedSite, setSelectedSite] = useState<number | ''>('')
@@ -37,6 +37,15 @@ export function DashboardPage() {
   const devices = useQuery({ queryKey: ['devices'], queryFn: () => api.devices() })
   const sites = useQuery({ queryKey: ['sites'], queryFn: api.sites })
   const effectiveDevice = selectedDevice || devices.data?.results[0]?.serial_number || ''
+  const hasLinkedWindow = Boolean(searchParams.get('from') && searchParams.get('to'))
+  const leaveLinkedWindow = (device: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('from')
+    nextSearchParams.delete('to')
+    if (device) nextSearchParams.set('device', device)
+    else nextSearchParams.delete('device')
+    setSearchParams(nextSearchParams, { replace: true })
+  }
   const dates = useMemo(() => {
     const linkedFrom = searchParams.get('from')
     const linkedTo = searchParams.get('to')
@@ -108,8 +117,10 @@ export function DashboardPage() {
                   label="Site"
                   value={selectedSite}
                   onChange={(event) => {
-                    setSelectedSite(Number(event.target.value) || '')
-                    if (event.target.value) setSelectedDevice('')
+                    const site = Number(event.target.value) || ''
+                    setSelectedSite(site)
+                    if (site) setSelectedDevice('')
+                    leaveLinkedWindow(site ? '' : effectiveDevice)
                   }}
                 >
                   <MenuItem value="">All / choose device</MenuItem>
@@ -125,7 +136,10 @@ export function DashboardPage() {
                 <Select
                   label="Device"
                   value={effectiveDevice}
-                  onChange={(event) => setSelectedDevice(event.target.value)}
+                  onChange={(event) => {
+                    setSelectedDevice(event.target.value)
+                    leaveLinkedWindow(event.target.value)
+                  }}
                 >
                   {devices.data?.results.map((device) => (
                     <MenuItem value={device.serial_number} key={device.id}>
@@ -137,8 +151,12 @@ export function DashboardPage() {
               <ToggleButtonGroup
                 size="small"
                 exclusive
-                value={range}
-                onChange={(_, value: Range | null) => value && setRange(value)}
+                value={hasLinkedWindow ? null : range}
+                onChange={(_, value: Range | null) => {
+                  if (!value) return
+                  setRange(value)
+                  leaveLinkedWindow(selectedSite ? '' : effectiveDevice)
+                }}
                 aria-label="Chart time range"
               >
                 {(Object.keys(ranges) as Range[]).map((value) => (

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db.models import Avg, DateTimeField, Func, Max, Min
@@ -7,6 +8,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import ValidationError
 
+from fleet.models import Device, Site
 from readings.models import SensorReading
 
 BUCKETS = {"5m": ("5 minutes", 300), "1h": ("1 hour", 3600), "1d": ("1 day", 86400)}
@@ -73,6 +75,21 @@ def filtered_readings(params, *, default_days: int = 1):
     return queryset, start, end
 
 
+def aggregation_timezone(params):
+    timezone_name = None
+    if params.get("device_id"):
+        timezone_name = (
+            Device.objects.filter(serial_number=params["device_id"])
+            .values_list("site__timezone", flat=True)
+            .first()
+        )
+    elif params.get("site_id"):
+        timezone_name = (
+            Site.objects.filter(pk=params["site_id"]).values_list("timezone", flat=True).first()
+        )
+    return ZoneInfo(timezone_name or settings.TIME_ZONE)
+
+
 def usage_series(params):
     bucket = params.get("bucket", "5m")
     if bucket not in BUCKETS:
@@ -112,8 +129,9 @@ def usage_series(params):
 
 def daily_consumption(params):
     queryset, start, end = filtered_readings(params, default_days=7)
+    local_timezone = aggregation_timezone(params)
     rows = (
-        queryset.annotate(day=TruncDay("timestamp"))
+        queryset.annotate(day=TruncDay("timestamp", tzinfo=local_timezone))
         .values("day", "device_id")
         .annotate(minimum=Min("cumulative_volume_l"), maximum=Max("cumulative_volume_l"))
         .order_by("day")
@@ -133,8 +151,12 @@ def daily_consumption(params):
 
 def usage_heatmap(params):
     queryset, start, end = filtered_readings(params, default_days=30)
+    local_timezone = aggregation_timezone(params)
     rows = (
-        queryset.annotate(day_of_week=ExtractWeekDay("timestamp"), hour=ExtractHour("timestamp"))
+        queryset.annotate(
+            day_of_week=ExtractWeekDay("timestamp", tzinfo=local_timezone),
+            hour=ExtractHour("timestamp", tzinfo=local_timezone),
+        )
         .values("day_of_week", "hour")
         .annotate(average_flow=Avg("flow_rate_lpm"))
         .order_by("day_of_week", "hour")

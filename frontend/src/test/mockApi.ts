@@ -17,6 +17,13 @@ const device = {
   is_stale: false,
 }
 
+const secondDevice = {
+  ...device,
+  id: 4,
+  serial_number: 'WM-004',
+  name: 'Garden supply',
+}
+
 const anomaly = {
   id: 7,
   device: 1,
@@ -33,7 +40,9 @@ const anomaly = {
   status: 'OPEN',
 }
 
-export function mockApi(options: { failSummary?: boolean; emptyDevices?: boolean } = {}) {
+export function mockApi(
+  options: { failSummary?: boolean; emptyDevices?: boolean; multipleDevices?: boolean } = {},
+) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = String(input)
     if (url.includes('/analytics/summary/')) {
@@ -65,10 +74,14 @@ export function mockApi(options: { failSummary?: boolean; emptyDevices?: boolean
       })
     if (url.includes('/devices/'))
       return Response.json({
-        count: options.emptyDevices ? 0 : 1,
+        count: options.emptyDevices ? 0 : options.multipleDevices ? 2 : 1,
         next: null,
         previous: null,
-        results: options.emptyDevices ? [] : [device],
+        results: options.emptyDevices
+          ? []
+          : options.multipleDevices
+            ? [device, secondDevice]
+            : [device],
       })
     if (url.includes('/analytics/usage/'))
       return Response.json({

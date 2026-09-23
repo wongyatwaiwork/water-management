@@ -26,6 +26,45 @@ describe('DashboardPage', () => {
     )
   })
 
+  it('leaves an anomaly window when a standard range is selected', async () => {
+    const fetchMock = mockApi()
+    const view = renderApp(
+      <DashboardPage />,
+      '/dashboard?device=WM-001&from=2026-09-23T01%3A42%3A00.000Z&to=2026-09-23T05%3A42%3A00.000Z',
+    )
+    await view.findByText('1,234 L')
+
+    await userEvent.click(view.getByRole('button', { name: '24h' }))
+
+    await waitFor(() => {
+      const usageUrls = fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.includes('/analytics/usage/'))
+      expect(usageUrls.at(-1)).not.toContain('2026-09-23T01%3A42%3A00.000Z')
+      expect(usageUrls.at(-1)).toContain('bucket=5m')
+    })
+  })
+
+  it('updates the URL-backed device and leaves an anomaly window when the device changes', async () => {
+    const fetchMock = mockApi({ multipleDevices: true })
+    const view = renderApp(
+      <DashboardPage />,
+      '/dashboard?device=WM-001&from=2026-09-23T01%3A42%3A00.000Z&to=2026-09-23T05%3A42%3A00.000Z',
+    )
+    await view.findByText('1,234 L')
+
+    await userEvent.click(view.getAllByRole('combobox')[1])
+    await userEvent.click(await screen.findByRole('option', { name: 'Garden supply · WM-004' }))
+
+    await waitFor(() => {
+      const usageUrls = fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.includes('/analytics/usage/'))
+      expect(usageUrls.at(-1)).toContain('device_id=WM-004')
+      expect(usageUrls.at(-1)).not.toContain('2026-09-23T01%3A42%3A00.000Z')
+    })
+  })
+
   it('renders an error state when the API fails', async () => {
     mockApi({ failSummary: true })
     renderApp(<DashboardPage />)
