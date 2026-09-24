@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from django.utils import timezone
@@ -115,6 +116,42 @@ def test_usage_heatmap_groups_by_the_device_site_timezone(api_client, device):
     assert response.json()["points"] == [
         {"day_of_week": 2, "hour": 7, "average_flow_rate_lpm": 1.0}
     ]
+
+
+def test_summary_counts_usage_since_the_device_site_local_midnight(api_client, device):
+    device.site.timezone = "Asia/Shanghai"
+    device.site.save(update_fields=["timezone"])
+    SensorReading.objects.bulk_create(
+        [
+            SensorReading(
+                device=device,
+                timestamp=datetime(2026, 9, 23, 15, 45, tzinfo=UTC),
+                flow_rate_lpm=Decimal("1.0"),
+                cumulative_volume_l=Decimal("1000"),
+            ),
+            SensorReading(
+                device=device,
+                timestamp=datetime(2026, 9, 23, 16, 15, tzinfo=UTC),
+                flow_rate_lpm=Decimal("1.0"),
+                cumulative_volume_l=Decimal("1030"),
+            ),
+            SensorReading(
+                device=device,
+                timestamp=datetime(2026, 9, 24, 0, 30, tzinfo=UTC),
+                flow_rate_lpm=Decimal("1.0"),
+                cumulative_volume_l=Decimal("1120"),
+            ),
+        ]
+    )
+
+    with patch(
+        "analytics_app.views.timezone.now",
+        return_value=datetime(2026, 9, 24, 1, 0, tzinfo=UTC),
+    ):
+        response = api_client.get("/api/analytics/summary/")
+
+    assert response.status_code == 200
+    assert response.json()["today_usage_liters"] == 120.0
 
 
 def test_invalid_bucket_is_rejected(api_client, device):

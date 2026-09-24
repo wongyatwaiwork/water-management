@@ -1,4 +1,5 @@
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db.models import Max, Min, OuterRef, Subquery, Sum
@@ -25,6 +26,48 @@ ANALYTICS_PARAMETERS = [
     OpenApiParameter("from", str, description="ISO-8601 start time"),
     OpenApiParameter("to", str, description="ISO-8601 end time"),
 ]
+
+
+def today_usage_liters(devices, now):
+    """Return usage since local midnight for every non-decommissioned device."""
+    total = 0.0
+    timezone_names = devices.values_list("site__timezone", flat=True).distinct()
+
+    for timezone_name in timezone_names:
+        local_midnight = timezone.localtime(now, ZoneInfo(timezone_name)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        devices_in_timezone = devices.filter(site__timezone=timezone_name)
+        readings_today = list(
+            SensorReading.objects.filter(
+                device__in=devices_in_timezone,
+                timestamp__gte=local_midnight,
+                timestamp__lte=now,
+            )
+            .values("device_id")
+            .annotate(minimum=Min("cumulative_volume_l"), maximum=Max("cumulative_volume_l"))
+        )
+        if not readings_today:
+            continue
+
+        device_ids = [row["device_id"] for row in readings_today]
+        baseline_reading = (
+            SensorReading.objects.filter(device=OuterRef("pk"), timestamp__lte=local_midnight)
+            .order_by("-timestamp")
+            .values("cumulative_volume_l")[:1]
+        )
+        baselines = dict(
+            devices_in_timezone.filter(pk__in=device_ids)
+            .annotate(baseline=Subquery(baseline_reading))
+            .values_list("pk", "baseline")
+        )
+
+        for row in readings_today:
+            baseline = baselines.get(row["device_id"])
+            start_volume = baseline if baseline is not None else row["minimum"]
+            total += max(0.0, float(row["maximum"] - start_volume))
+
+    return total
 
 
 class UsageView(APIView):
@@ -55,7 +98,6 @@ class SummaryView(APIView):
     @extend_schema(responses=SummaryResponseSerializer)
     def get(self, request):
         now = timezone.now()
-        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
         stale_before = now - timedelta(minutes=settings.DEVICE_STALE_MINUTES)
         devices = Device.objects.exclude(status=Device.Status.DECOMMISSIONED)
         latest_flow = (
@@ -69,12 +111,7 @@ class SummaryView(APIView):
             ]
             or 0
         )
-        per_device = (
-            SensorReading.objects.filter(timestamp__gte=today)
-            .values("device_id")
-            .annotate(minimum=Min("cumulative_volume_l"), maximum=Max("cumulative_volume_l"))
-        )
-        today_usage = sum(float(row["maximum"] - row["minimum"]) for row in per_device)
+        today_usage = today_usage_liters(devices, now)
         return Response(
             {
                 "today_usage_liters": round(today_usage, 2),
